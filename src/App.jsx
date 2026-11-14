@@ -194,6 +194,10 @@ export default function App() {
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
   const [isAddAssessmentOpen, setIsAddAssessmentOpen] = useState(false);
   const [selectedCourseForAssessment, setSelectedCourseForAssessment] = useState(null);
+  const [selectedCourseForGoal, setSelectedCourseForGoal] = useState(null);
+  const [subjectSearch, setSubjectSearch] = useState('');
+  const [isSubjectMenuOpen, setIsSubjectMenuOpen] = useState(false);
+  const [isAddingSubjectForGoal, setIsAddingSubjectForGoal] = useState(false);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,6 +231,19 @@ export default function App() {
       });
     });
     return totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100);
+  };
+
+  const getGoalProgress = (goal) => {
+    if (goal.completed) return 100;
+    const course = courses.find(item => item.id === goal.courseId);
+    return course ? Math.min(99, getCourseCompletion(course)) : 0;
+  };
+
+  const openAddGoal = () => {
+    setSelectedCourseForGoal(null);
+    setSubjectSearch('');
+    setIsSubjectMenuOpen(false);
+    setIsAddGoalOpen(true);
   };
 
   const overallProgress = useMemo(() => {
@@ -311,17 +328,24 @@ export default function App() {
   // Add Goal Handler
   const handleAddGoal = (e) => {
     e.preventDefault();
+    if (!selectedCourseForGoal || !courses.some(course => course.id === selectedCourseForGoal)) {
+      showToast("Select a subject for this goal.", "error");
+      return;
+    }
+
     const formData = new FormData(e.target);
     const newGoal = {
       id: `g-${Date.now()}`,
       title: formData.get('title'),
       category: formData.get('category'),
       deadline: formData.get('deadline'),
-      courseId: formData.get('courseId'),
+      courseId: selectedCourseForGoal,
       completed: false
     };
     setData(prev => ({ ...prev, goals: [newGoal, ...prev.goals] }));
     setIsAddGoalOpen(false);
+    setSelectedCourseForGoal(null);
+    setSubjectSearch('');
     showToast("Goal created successfully!");
   };
 
@@ -367,6 +391,12 @@ export default function App() {
       assessments: []
     };
     setData(prev => ({ ...prev, courses: [...prev.courses, newCourse] }));
+    if (isAddingSubjectForGoal) {
+      setSelectedCourseForGoal(newCourse.id);
+      setSubjectSearch(newCourse.name);
+      setIsSubjectMenuOpen(false);
+      setIsAddingSubjectForGoal(false);
+    }
     setIsAddSubjectOpen(false);
     showToast("Subject & Syllabus framework created!");
   };
@@ -391,6 +421,12 @@ export default function App() {
     setIsAddAssessmentOpen(false);
     showToast("Assessment score recorded!");
   };
+
+  const completedGoals = data.goals.filter(goal => goal.completed).length;
+  const activeGoals = data.goals.length - completedGoals;
+  const goalCompletion = data.goals.length === 0
+    ? 0
+    : Math.round((completedGoals / data.goals.length) * 100);
 
   return (
     <div className={`min-h-screen font-sans ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col lg:flex-row`}>
@@ -509,7 +545,7 @@ export default function App() {
               <span>Add Subject</span>
             </button>
             <button
-              onClick={() => setIsAddGoalOpen(true)}
+              onClick={openAddGoal}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all shadow-md shadow-indigo-500/20"
             >
               <Target className="w-4 h-4" />
@@ -568,7 +604,7 @@ export default function App() {
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">Across {courses.length} active courses</p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-purple-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-purple-100 dark:border-purple-900/50 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Goals</span>
                   <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
@@ -576,10 +612,23 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold">{data.goals.filter(g => !g.completed).length}</span>
+                  <span className="text-3xl font-extrabold">{activeGoals}</span>
                   <span className="text-xs font-medium text-purple-500">Unfinished</span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">{data.goals.filter(g => g.completed).length} completed this week</p>
+                <div className="flex items-center justify-between mt-3 mb-1.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{completedGoals} of {data.goals.length} goals completed</p>
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-300">{goalCompletion}%</span>
+                </div>
+                <div
+                  className="w-full bg-purple-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden"
+                  role="progressbar"
+                  aria-label="Overall goal completion"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={goalCompletion}
+                >
+                  <div className="bg-gradient-to-r from-purple-500 via-indigo-500 to-fuchsia-500 h-full rounded-full transition-all duration-500" style={{ width: `${goalCompletion}%` }} />
+                </div>
               </div>
             </div>
 
@@ -624,33 +673,69 @@ export default function App() {
               </div>
 
               {/* UPCOMING DEADLINES & ACTIVE TASKS */}
-              <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/80 dark:from-indigo-950/30 dark:via-slate-900 dark:to-violet-950/30 border border-indigo-100 dark:border-indigo-900/50 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-lg">Upcoming Goals</h3>
+                  <h3 className="font-bold text-lg">Active Goals</h3>
                   <button onClick={() => setActiveTab('goals')} className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">View All</button>
                 </div>
 
                 <div className="space-y-3">
-                  {data.goals.slice(0, 4).map(goal => (
-                    <div key={goal.id} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                      <button onClick={() => handleToggleGoal(goal.id)} className="mt-0.5 text-slate-400 hover:text-indigo-600">
-                        {goal.completed ? <CheckSquare className="w-4 h-4 text-emerald-500" /> : <Square className="w-4 h-4" />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium leading-tight ${goal.completed ? 'line-through text-slate-400' : ''}`}>
-                          {goal.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-medium">
-                            {goal.category}
-                          </span>
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {goal.deadline}
-                          </span>
+                  {data.goals.filter(goal => !goal.completed).slice(0, 4).map(goal => {
+                    const progress = getGoalProgress(goal);
+                    const progressColor = progress >= 100
+                      ? 'from-emerald-400 to-teal-500'
+                      : progress >= 80
+                        ? 'from-amber-400 to-orange-500'
+                        : 'from-indigo-500 via-violet-500 to-fuchsia-500';
+                    const progressLabel = progress >= 100
+                      ? 'Completed'
+                      : progress >= 80
+                        ? 'Nearly completed'
+                        : 'In progress';
+                    const goalCourse = courses.find(course => course.id === goal.courseId);
+
+                    return (
+                      <div key={goal.id} className="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-br from-white/90 to-indigo-50/80 dark:from-slate-800/70 dark:to-indigo-950/40 border border-indigo-100/80 dark:border-indigo-900/50 shadow-sm">
+                        <button
+                          onClick={() => handleToggleGoal(goal.id)}
+                          className="mt-0.5 text-slate-400 hover:text-indigo-600"
+                          aria-label={`Mark ${goal.title} complete`}
+                        >
+                          <Square className="w-4 h-4" />
+                        </button>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium leading-tight">{goal.title}</p>
+                            <span className={`shrink-0 text-[10px] font-semibold ${progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : progress >= 80 ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                              {progressLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-medium">
+                              {goal.category}
+                            </span>
+                            {goalCourse && <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{goalCourse.name}</span>}
+                            <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto shrink-0">
+                              <Clock className="w-3 h-3" /> {goal.deadline}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div
+                              className="w-full bg-slate-200 dark:bg-slate-700/80 h-2.5 rounded-full overflow-hidden shadow-inner"
+                              role="progressbar"
+                              aria-label={`${goal.title} subject milestones`}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={progress}
+                            >
+                              <div className={`bg-gradient-to-r ${progressColor} h-full rounded-full transition-all duration-500 shadow-sm`} style={{ width: `${progress}%` }} />
+                            </div>
+                            <p className="text-right text-[10px] font-medium text-slate-500 dark:text-slate-400">{progress}%</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Quick AI Suggestion Card */}
@@ -860,7 +945,7 @@ export default function App() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Organized into Daily, Weekly, and Monthly Milestones</p>
               </div>
               <button
-                onClick={() => setIsAddGoalOpen(true)}
+                onClick={openAddGoal}
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-2 shadow-md shadow-indigo-500/20"
               >
                 <Plus className="w-4 h-4" /> Add New Goal
@@ -879,10 +964,28 @@ export default function App() {
                   </div>
 
                   <div className="space-y-3">
-                    {data.goals.filter(g => g.category === category).map(goal => (
-                      <div key={goal.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2 group">
+                    {data.goals.filter(g => g.category === category).map(goal => {
+                      const progress = getGoalProgress(goal);
+                      const progressColor = progress >= 100
+                        ? 'from-emerald-400 to-teal-500'
+                        : progress >= 80
+                          ? 'from-amber-400 to-orange-500'
+                          : 'from-indigo-500 via-violet-500 to-fuchsia-500';
+                      const progressLabel = progress >= 100
+                        ? 'Completed'
+                        : progress >= 80
+                          ? 'Nearly completed'
+                          : 'In progress';
+                      const goalCourse = courses.find(course => course.id === goal.courseId);
+
+                      return (
+                      <div key={goal.id} className="p-4 rounded-xl bg-gradient-to-br from-indigo-50/70 via-white to-violet-50/70 dark:from-indigo-950/30 dark:via-slate-800/50 dark:to-violet-950/30 border border-indigo-100 dark:border-indigo-900/50 shadow-sm space-y-2 group">
                         <div className="flex items-start justify-between gap-2">
-                          <button onClick={() => handleToggleGoal(goal.id)} className="mt-0.5 text-slate-400 hover:text-indigo-600">
+                          <button
+                            onClick={() => handleToggleGoal(goal.id)}
+                            className="mt-0.5 text-slate-400 hover:text-indigo-600"
+                            aria-label={goal.completed ? `Mark ${goal.title} active` : `Mark ${goal.title} complete`}
+                          >
                             {goal.completed ? <CheckSquare className="w-4 h-4 text-emerald-500" /> : <Square className="w-4 h-4" />}
                           </button>
                           <span className={`text-sm font-medium flex-1 ${goal.completed ? 'line-through text-slate-400' : ''}`}>
@@ -894,9 +997,25 @@ export default function App() {
                         </div>
                         <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {goal.deadline}</span>
+                          <span className={`text-[10px] font-semibold ${progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : progress >= 80 ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                            {progressLabel}
+                          </span>
                         </div>
+                        {goalCourse && <p className="text-[10px] text-slate-500 dark:text-slate-400">{goalCourse.name} milestones</p>}
+                        <div
+                          className="w-full bg-slate-200 dark:bg-slate-700/80 h-2.5 rounded-full overflow-hidden shadow-inner"
+                          role="progressbar"
+                          aria-label={`${goal.title} subject milestones`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={progress}
+                        >
+                          <div className={`bg-gradient-to-r ${progressColor} h-full rounded-full transition-all duration-500 shadow-sm`} style={{ width: `${progress}%` }} />
+                        </div>
+                        <p className="text-right text-[10px] font-medium text-slate-500 dark:text-slate-400">{progress}%</p>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               ))}
@@ -1058,11 +1177,14 @@ export default function App() {
 
       {/* MODAL: ADD SUBJECT */}
       {isAddSubjectOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className={`fixed inset-0 ${isAddingSubjectForGoal ? 'z-[60]' : 'z-50'} bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4`}>
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-lg">Add New Subject / Course</h3>
-              <button onClick={() => setIsAddSubjectOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <h3 className="font-bold text-lg">{isAddingSubjectForGoal ? 'Add Subject for Goal' : 'Add New Subject / Course'}</h3>
+              <button onClick={() => {
+                setIsAddSubjectOpen(false);
+                setIsAddingSubjectForGoal(false);
+              }} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1075,7 +1197,7 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Subject Name</label>
-                <input required name="name" placeholder="e.g. Software Engineering" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input required name="name" defaultValue={isAddingSubjectForGoal ? subjectSearch : ''} placeholder="e.g. Software Engineering" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1094,7 +1216,10 @@ export default function App() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsAddSubjectOpen(false)} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+                <button type="button" onClick={() => {
+                  setIsAddSubjectOpen(false);
+                  setIsAddingSubjectForGoal(false);
+                }} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
                 <button type="submit" className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/20">Save Subject</button>
               </div>
             </form>
@@ -1117,6 +1242,92 @@ export default function App() {
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Goal Title</label>
                 <input required name="title" placeholder="e.g. Finish Unit 2 SQL Practice Problems" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+
+              <div
+                className="relative"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setIsSubjectMenuOpen(false);
+                }}
+              >
+                <label htmlFor="goal-subject-search" className="block text-xs font-semibold text-slate-500 mb-1">Subject</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    id="goal-subject-search"
+                    type="text"
+                    role="combobox"
+                    aria-expanded={isSubjectMenuOpen}
+                    aria-controls="goal-subject-options"
+                    aria-autocomplete="list"
+                    autoComplete="off"
+                    required
+                    value={subjectSearch}
+                    onFocus={() => setIsSubjectMenuOpen(true)}
+                    onChange={(e) => {
+                      setSubjectSearch(e.target.value);
+                      setSelectedCourseForGoal(null);
+                      setIsSubjectMenuOpen(true);
+                    }}
+                    placeholder="Search or select a subject..."
+                    className="w-full pl-9 pr-10 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsSubjectMenuOpen(open => !open)}
+                    aria-label="Show subjects"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                {isSubjectMenuOpen && (
+                  <div
+                    id="goal-subject-options"
+                    role="listbox"
+                    className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-xl"
+                  >
+                    {courses
+                      .filter(course => course.name.toLowerCase().includes(subjectSearch.trim().toLowerCase()) || course.code.toLowerCase().includes(subjectSearch.trim().toLowerCase()))
+                      .map(course => (
+                        <button
+                          key={course.id}
+                          type="button"
+                          role="option"
+                          aria-selected={selectedCourseForGoal === course.id}
+                          onClick={() => {
+                            setSelectedCourseForGoal(course.id);
+                            setSubjectSearch(course.name);
+                            setIsSubjectMenuOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <span className="truncate">{course.name}</span>
+                          <span className="shrink-0 text-xs text-slate-400">{course.code}</span>
+                        </button>
+                      ))}
+                    {subjectSearch.trim() && !courses.some(course => course.name.trim().toLowerCase() === subjectSearch.trim().toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSubjectMenuOpen(false);
+                          setIsAddingSubjectForGoal(true);
+                          setIsAddSubjectOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add “{subjectSearch.trim()}” as a new subject
+                      </button>
+                    )}
+                    {courses.length === 0 && !subjectSearch.trim() && (
+                      <p className="px-3 py-2 text-xs text-slate-500">No subjects yet. Type a name to add one.</p>
+                    )}
+                  </div>
+                )}
+                {selectedCourseForGoal && (
+                  <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">Subject linked to this goal</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
