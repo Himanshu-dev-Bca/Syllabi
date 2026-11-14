@@ -1,11 +1,12 @@
 /**
  * hooks/useAppData.js
- * Central data hook — owns all state, persistence and mutations.
+ * Central data hook — owns all state, persistence, and mutations.
  * Components receive data and handlers; they never mutate state directly.
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { loadData, saveData } from '../lib/storage';
+import { loadData, saveData, clearData } from '../lib/storage';
+import { getSampleData } from '../lib/sampleData';
 import {
   overallCompletion,
   pendingTopicCount,
@@ -15,24 +16,20 @@ import {
   courseColors,
 } from '../lib/calculations';
 
-/** Returns a new empty application data structure — no demo records. */
 function emptyState() {
   return { courses: [], goals: [], user: null };
 }
 
-function withPersist(setter) {
-  return (updater) => {
-    setter(prev => {
+export function useAppData() {
+  const [data, rawSetData] = useState(() => loadData() ?? emptyState());
+
+  const setData = useCallback((updater) => {
+    rawSetData(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       saveData(next);
       return next;
     });
-  };
-}
-
-export function useAppData() {
-  const [data, rawSetData] = useState(() => loadData() ?? emptyState());
-  const setData = useCallback(withPersist(rawSetData), [rawSetData]);
+  }, []);
 
   // ── Derived values (memoized) ────────────────────────────────────────────
   const { courses, goals, user } = data;
@@ -44,37 +41,41 @@ export function useAppData() {
     activeGoals: goals.filter(g => !g.completed).length,
     completedThisWeek: goalsCompletedThisWeek(goals),
     totalAssessments: courses.reduce((s, c) => s + (c.assessments?.length ?? 0), 0),
+    totalCredits: courses.reduce((s, c) => s + (Number(c.credits) || 0), 0),
   }), [courses, goals]);
 
   const priorityGoals = useMemo(() => sortedGoals(goals), [goals]);
 
-  // ── User setup ───────────────────────────────────────────────────────────
+  // ── User profile mutations ───────────────────────────────────────────────
   const setupUser = useCallback((userInfo) => {
     setData(prev => ({ ...prev, user: userInfo }));
   }, [setData]);
 
   const updateUser = useCallback((patch) => {
-    setData(prev => ({ ...prev, user: { ...prev.user, ...patch } }));
+    setData(prev => ({
+      ...prev,
+      user: prev.user ? { ...prev.user, ...patch } : patch,
+    }));
   }, [setData]);
 
   // ── Course mutations ─────────────────────────────────────────────────────
   const addCourse = useCallback((fields) => {
-    const index = data.courses.length;
-    const colors = courseColors(index);
-    const course = {
-      id: `c-${Date.now()}`,
-      code: fields.code.trim().toUpperCase(),
-      name: fields.name.trim(),
-      credits: Number(fields.credits),
-      category: fields.category,
-      color: colors.badge,
-      accent: colors.bar,
-      units: [],
-      assessments: [],
-    };
-    setData(prev => ({ ...prev, courses: [...prev.courses, course] }));
-    return course.id;
-  }, [data.courses.length, setData]);
+    setData(prev => {
+      const colors = courseColors(prev.courses.length);
+      const newCourse = {
+        id: `c-${Date.now()}`,
+        code: fields.code.trim().toUpperCase(),
+        name: fields.name.trim(),
+        credits: Number(fields.credits) || 4,
+        category: fields.category || 'Core',
+        color: colors.badge,
+        accent: colors.bar,
+        units: [],
+        assessments: [],
+      };
+      return { ...prev, courses: [...prev.courses, newCourse] };
+    });
+  }, [setData]);
 
   const deleteCourse = useCallback((courseId) => {
     setData(prev => ({
@@ -102,6 +103,19 @@ export function useAppData() {
     }));
   }, [setData]);
 
+  const deleteUnit = useCallback((courseId, unitId) => {
+    setData(prev => ({
+      ...prev,
+      courses: prev.courses.map(c => {
+        if (c.id !== courseId) return c;
+        return {
+          ...c,
+          units: c.units.filter(u => u.id !== unitId),
+        };
+      }),
+    }));
+  }, [setData]);
+
   // ── Topic mutations ──────────────────────────────────────────────────────
   const addTopic = useCallback((courseId, unitId, fields) => {
     setData(prev => ({
@@ -120,6 +134,25 @@ export function useAppData() {
                 status: 'Not Started',
                 plannedDate: fields.plannedDate || null,
               }],
+            };
+          }),
+        };
+      }),
+    }));
+  }, [setData]);
+
+  const deleteTopic = useCallback((courseId, unitId, topicId) => {
+    setData(prev => ({
+      ...prev,
+      courses: prev.courses.map(c => {
+        if (c.id !== courseId) return c;
+        return {
+          ...c,
+          units: c.units.map(u => {
+            if (u.id !== unitId) return u;
+            return {
+              ...u,
+              topics: u.topics.filter(t => t.id !== topicId),
             };
           }),
         };
@@ -153,7 +186,12 @@ export function useAppData() {
   const addAssessment = useCallback((courseId, fields) => {
     const obtained = Number(fields.obtainedMarks);
     const max = Number(fields.maxMarks);
-    if (obtained > max) return { error: 'Obtained marks cannot exceed maximum marks.' };
+    if (isNaN(obtained) || isNaN(max) || max <= 0) {
+      return { error: 'Please provide valid mark numbers.' };
+    }
+    if (obtained > max) {
+      return { error: 'Obtained marks cannot exceed maximum marks.' };
+    }
 
     setData(prev => ({
       ...prev,
@@ -161,7 +199,7 @@ export function useAppData() {
         if (c.id !== courseId) return c;
         return {
           ...c,
-          assessments: [...c.assessments, {
+          assessments: [...(c.assessments || []), {
             id: `a-${Date.now()}`,
             name: fields.name.trim(),
             obtainedMarks: obtained,
@@ -178,7 +216,10 @@ export function useAppData() {
       ...prev,
       courses: prev.courses.map(c => {
         if (c.id !== courseId) return c;
-        return { ...c, assessments: c.assessments.filter(a => a.id !== assessmentId) };
+        return {
+          ...c,
+          assessments: (c.assessments || []).filter(a => a.id !== assessmentId),
+        };
       }),
     }));
   }, [setData]);
@@ -193,8 +234,8 @@ export function useAppData() {
       goals: [{
         id: `g-${Date.now()}`,
         title,
-        category: fields.category,
-        deadline: fields.deadline,
+        category: fields.category || 'Weekly',
+        deadline: fields.deadline || '',
         courseId: fields.courseId || null,
         completed: false,
         completedAt: null,
@@ -209,19 +250,33 @@ export function useAppData() {
       ...prev,
       goals: prev.goals.map(g => {
         if (g.id !== id) return g;
-        const nowCompleted = !g.completed;
+        const nextCompleted = !g.completed;
         return {
           ...g,
-          completed: nowCompleted,
-          completedAt: nowCompleted ? new Date().toISOString() : null,
+          completed: nextCompleted,
+          completedAt: nextCompleted ? new Date().toISOString() : null,
         };
       }),
     }));
   }, [setData]);
 
   const deleteGoal = useCallback((id) => {
-    setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
+    setData(prev => ({
+      ...prev,
+      goals: prev.goals.filter(g => g.id !== id),
+    }));
   }, [setData]);
+
+  // ── Utility Actions ──────────────────────────────────────────────────────
+  const loadSample = useCallback(() => {
+    const sample = getSampleData();
+    setData(sample);
+  }, [setData]);
+
+  const resetAll = useCallback(() => {
+    clearData();
+    rawSetData(emptyState());
+  }, []);
 
   return {
     data,
@@ -236,13 +291,16 @@ export function useAppData() {
     addCourse,
     deleteCourse,
     addUnit,
+    deleteUnit,
     addTopic,
+    deleteTopic,
     updateTopicStatus,
     addAssessment,
     deleteAssessment,
     addGoal,
     toggleGoal,
     deleteGoal,
+    loadSample,
+    resetAll,
   };
 }
-

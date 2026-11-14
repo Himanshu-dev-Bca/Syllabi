@@ -1,9 +1,9 @@
 /**
  * components/Dashboard.jsx
- * Overview tab — all values derived from actual state, no hardcoded metrics.
+ * Overview tab — metrics and summaries derived purely from live state.
  */
 
-import { BookOpen, Clock, Award, Target } from 'lucide-react';
+import { BookOpen, Target, Calendar, CheckCircle2 } from 'lucide-react';
 import { StatCard, ProgressBar, EmptyState, Button } from './ui';
 import { courseCompletion } from '../lib/calculations';
 
@@ -46,15 +46,18 @@ export function Dashboard({ courses, goals, stats, onNavigate, onToggleGoal }) {
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Course progress */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Course progress</h3>
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Course progress</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Completion across all syllabus units</p>
+            </div>
             {courses.length > 0 && (
               <button
                 onClick={() => onNavigate('syllabus')}
                 className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
               >
-                Manage syllabus
+                Manage syllabus →
               </button>
             )}
           </div>
@@ -63,7 +66,7 @@ export function Dashboard({ courses, goals, stats, onNavigate, onToggleGoal }) {
             <EmptyState
               icon={BookOpen}
               title="No courses added"
-              description="Add your first course to start tracking syllabus progress."
+              description="Add your first course in Syllabus Planner to start tracking progress."
               action={
                 <Button size="sm" onClick={() => onNavigate('syllabus')}>
                   Add a course
@@ -74,21 +77,30 @@ export function Dashboard({ courses, goals, stats, onNavigate, onToggleGoal }) {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {courses.map(course => {
                 const pct = courseCompletion(course);
+                const totalTopics = course.units.reduce((s, u) => s + u.topics.length, 0);
+                const doneTopics = course.units.reduce(
+                  (s, u) => s + u.topics.filter(t => t.status === 'Completed').length,
+                  0
+                );
                 return (
-                  <div key={course.id} className="px-5 py-3.5 space-y-2">
+                  <div key={course.id} className="px-5 py-4 space-y-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${course.color}`}>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded border ${course.color}`}>
                           {course.code}
                         </span>
-                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{course.name}</span>
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {course.name}
+                        </span>
                       </div>
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 ml-3 shrink-0">{pct}%</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 ml-3 shrink-0">
+                        {pct}%
+                      </span>
                     </div>
                     <ProgressBar value={pct} colorClass={course.accent} />
-                    <div className="flex gap-3 text-xs text-slate-400">
+                    <div className="flex justify-between text-xs text-slate-400 pt-0.5">
                       <span>{course.units.length} unit{course.units.length !== 1 ? 's' : ''}</span>
-                      <span>{course.units.reduce((s, u) => s + u.topics.length, 0)} topics</span>
+                      <span>{doneTopics} / {totalTopics} topics completed</span>
                     </div>
                   </div>
                 );
@@ -98,45 +110,59 @@ export function Dashboard({ courses, goals, stats, onNavigate, onToggleGoal }) {
         </div>
 
         {/* Upcoming goals */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Upcoming goals</h3>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Upcoming goals</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">High priority academic tasks</p>
+            </div>
             {goals.length > 0 && (
               <button
                 onClick={() => onNavigate('goals')}
                 className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
               >
-                View all
+                View all →
               </button>
             )}
           </div>
 
           {pendingGoals.length === 0 ? (
-            <EmptyState
-              icon={Target}
-              title="No open goals"
-              description={goals.length === 0 ? 'Create goals to track your study tasks.' : 'All goals are completed.'}
-              action={
-                <Button size="sm" onClick={() => onNavigate('goals')}>
-                  {goals.length === 0 ? 'Add a goal' : 'View completed'}
-                </Button>
-              }
-            />
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={Target}
+                title="No pending goals"
+                description={goals.length === 0 ? 'Create goals to organize your study schedule.' : 'All current goals are marked complete!'}
+                action={
+                  <Button size="sm" onClick={() => onNavigate('goals')}>
+                    {goals.length === 0 ? 'Add a goal' : 'Manage goals'}
+                  </Button>
+                }
+              />
+            </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800 flex-1">
               {pendingGoals.map(goal => (
-                <li key={goal.id} className="flex items-start gap-3 px-5 py-3">
+                <li key={goal.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                   <button
                     onClick={() => onToggleGoal(goal.id)}
-                    className="mt-0.5 shrink-0 w-4 h-4 rounded border border-slate-300 dark:border-slate-600 hover:border-indigo-500 transition-colors"
+                    className="mt-0.5 shrink-0 w-4 h-4 rounded border border-slate-300 dark:border-slate-600 hover:border-indigo-500 flex items-center justify-center transition-colors"
                     aria-label="Mark complete"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug truncate">{goal.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">{goal.category}</span>
-                      <span className="text-[10px] text-slate-400">·</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Due {goal.deadline}</span>
+                  >
+                    {goal.completed && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 leading-snug truncate">
+                      {goal.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                        {goal.category}
+                      </span>
+                      {goal.deadline && (
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> Due {goal.deadline}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -148,4 +174,3 @@ export function Dashboard({ courses, goals, stats, onNavigate, onToggleGoal }) {
     </div>
   );
 }
-
