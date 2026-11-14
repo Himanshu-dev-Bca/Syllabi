@@ -429,18 +429,18 @@ export default function App() {
     : Math.round((completedGoals / data.goals.length) * 100);
 
   return (
-    <div className={`min-h-screen font-sans ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col lg:flex-row`}>
+    <div className={`app-shell min-h-screen font-sans ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col lg:flex-row`}>
       
       {/* Toast Notification Container */}
       {toast && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border border-slate-700 dark:border-slate-300 animate-bounce">
+        <div className="app-toast fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border border-slate-700 dark:border-slate-300">
           <Sparkles className="w-5 h-5 text-indigo-400 dark:text-indigo-600" />
           <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
 
       {/* SIDEBAR NAVIGATION */}
-      <aside className="w-full lg:w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur-md flex flex-col justify-between p-4 shrink-0">
+      <aside className="app-sidebar w-full lg:w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur-md flex flex-col justify-between p-4 shrink-0">
         <div>
           {/* Logo Header */}
           <div className="flex items-center justify-between px-3 py-3 mb-6">
@@ -457,6 +457,7 @@ export default function App() {
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title="Toggle Theme"
+              aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
             >
               {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
@@ -478,6 +479,7 @@ export default function App() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
+                  aria-current={active ? 'page' : undefined}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
                     active
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25'
@@ -516,7 +518,7 @@ export default function App() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main className="app-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         {/* TOP TOOLBAR / BREADCRUMB */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -1103,7 +1105,7 @@ export default function App() {
 
         {/* TAB 6: AI ACADEMIC ASSISTANT (SRS Appendix B Specification) */}
         {activeTab === 'ai-assistant' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-12rem)]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[calc(100vh-12rem)]">
             {/* Assistant Workspace Chat */}
             <div className="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
               <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
@@ -1177,11 +1179,11 @@ export default function App() {
 
       {/* MODAL: ADD SUBJECT */}
       {isAddSubjectOpen && (
-        <div className={`fixed inset-0 ${isAddingSubjectForGoal ? 'z-[60]' : 'z-50'} bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4`}>
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+        <div className={`app-modal-backdrop fixed inset-0 ${isAddingSubjectForGoal ? 'z-[60]' : 'z-50'} bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4`}>
+          <div className="app-modal w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="add-subject-title">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-lg">{isAddingSubjectForGoal ? 'Add Subject for Goal' : 'Add New Subject / Course'}</h3>
-              <button onClick={() => {
+              <h3 id="add-subject-title" className="font-bold text-lg">{isAddingSubjectForGoal ? 'Add Subject for Goal' : 'Add New Subject / Course'}</h3>
+              <button aria-label="Close add subject dialog" onClick={() => {
                 setIsAddSubjectOpen(false);
                 setIsAddingSubjectForGoal(false);
               }} className="text-slate-400 hover:text-slate-600">
@@ -1191,23 +1193,23 @@ export default function App() {
 
             <form onSubmit={handleAddSubject} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Course Code</label>
-                <input required name="code" placeholder="e.g. CS505" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="subject-code" className="block text-xs font-semibold text-slate-500 mb-1">Course Code</label>
+                <input id="subject-code" required name="code" placeholder="e.g. CS505" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Subject Name</label>
-                <input required name="name" defaultValue={isAddingSubjectForGoal ? subjectSearch : ''} placeholder="e.g. Software Engineering" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="subject-name" className="block text-xs font-semibold text-slate-500 mb-1">Subject Name</label>
+                <input id="subject-name" required name="name" defaultValue={isAddingSubjectForGoal ? subjectSearch : ''} placeholder="e.g. Software Engineering" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Credits</label>
-                  <input required type="number" min="1" max="6" name="credits" defaultValue="4" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <label htmlFor="subject-credits" className="block text-xs font-semibold text-slate-500 mb-1">Credits</label>
+                  <input id="subject-credits" required type="number" min="1" max="6" name="credits" defaultValue="4" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Category</label>
-                  <select name="category" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <label htmlFor="subject-category" className="block text-xs font-semibold text-slate-500 mb-1">Category</label>
+                  <select id="subject-category" name="category" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="Core">Core</option>
                     <option value="Elective">Elective</option>
                     <option value="Lab">Lab / Practical</option>
@@ -1229,19 +1231,19 @@ export default function App() {
 
       {/* MODAL: ADD GOAL */}
       {isAddGoalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+        <div className="app-modal-backdrop fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="app-modal w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="add-goal-title">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-lg">Add New Goal / Target</h3>
-              <button onClick={() => setIsAddGoalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <h3 id="add-goal-title" className="font-bold text-lg">Add New Goal / Target</h3>
+              <button aria-label="Close add goal dialog" onClick={() => setIsAddGoalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddGoal} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Goal Title</label>
-                <input required name="title" placeholder="e.g. Finish Unit 2 SQL Practice Problems" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="goal-title" className="block text-xs font-semibold text-slate-500 mb-1">Goal Title</label>
+                <input id="goal-title" required name="title" placeholder="e.g. Finish Unit 2 SQL Practice Problems" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div
@@ -1332,16 +1334,16 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Time Horizon</label>
-                  <select name="category" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <label htmlFor="goal-category" className="block text-xs font-semibold text-slate-500 mb-1">Time Horizon</label>
+                  <select id="goal-category" name="category" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="Daily">Daily</option>
                     <option value="Weekly">Weekly</option>
                     <option value="Monthly">Monthly</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Deadline</label>
-                  <input required type="date" name="deadline" defaultValue="2026-11-20" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <label htmlFor="goal-deadline" className="block text-xs font-semibold text-slate-500 mb-1">Deadline</label>
+                  <input id="goal-deadline" required type="date" name="deadline" defaultValue="2026-11-20" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
               </div>
 
@@ -1356,29 +1358,29 @@ export default function App() {
 
       {/* MODAL: ADD ASSESSMENT */}
       {isAddAssessmentOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+        <div className="app-modal-backdrop fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="app-modal w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="add-assessment-title">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-lg">Log Assessment Marks</h3>
-              <button onClick={() => setIsAddAssessmentOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <h3 id="add-assessment-title" className="font-bold text-lg">Log Assessment Marks</h3>
+              <button aria-label="Close add assessment dialog" onClick={() => setIsAddAssessmentOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddAssessment} className="space-y-4 text-sm">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Assessment Name</label>
-                <input required name="name" placeholder="e.g. Quiz 2 / Lab Exam" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label htmlFor="assessment-name" className="block text-xs font-semibold text-slate-500 mb-1">Assessment Name</label>
+                <input id="assessment-name" required name="name" placeholder="e.g. Quiz 2 / Lab Exam" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Obtained Marks</label>
-                  <input required type="number" min="0" max="100" name="obtainedMarks" placeholder="25" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <label htmlFor="assessment-obtained" className="block text-xs font-semibold text-slate-500 mb-1">Obtained Marks</label>
+                  <input id="assessment-obtained" required type="number" min="0" max="100" name="obtainedMarks" placeholder="25" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">Max Marks</label>
-                  <input required type="number" min="1" max="100" name="maxMarks" defaultValue="30" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <label htmlFor="assessment-max" className="block text-xs font-semibold text-slate-500 mb-1">Max Marks</label>
+                  <input id="assessment-max" required type="number" min="1" max="100" name="maxMarks" defaultValue="30" className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
               </div>
 
